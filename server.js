@@ -5,7 +5,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 app.post('/collect', (req, res) => {
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const ip = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : req.connection.remoteAddress;
     const data = req.body;
     data.ip = ip;
     data.timestamp = new Date().toISOString();
