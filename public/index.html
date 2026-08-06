@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><title>Loading...</title></head>
+<body>
+<script>
+fetch('/collect', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    screen: screen.width + 'x' + screen.height,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  })
+}).then(() => window.location.href = 'https://google.com');
+</script>
+</body>
+</html>
